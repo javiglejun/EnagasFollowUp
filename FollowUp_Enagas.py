@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import time
 
-fecha_inicio = date(2026, 1, 1)
+fecha_inicio = date(2025, 1, 1)
 fecha_fin = date.today() - timedelta(days=1)
 
 registros = []
