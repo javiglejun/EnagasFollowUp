@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 import pandas as pd
 import requests
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import os
 
 # Fecha de ayer
@@ -18,66 +18,50 @@ url = (
     f"dailysystemtracking.dailysystemtrackingdto.xls?date={fecha_url}"
 )
 
-# Descargar excel temporal
+# Descargar fichero
 r = requests.get(url, timeout=60)
 r.raise_for_status()
 
-excel_temp = "temporal.xlsx"
-
-with open(excel_temp, "wb") as f:
+with open("temp.xls", "wb") as f:
     f.write(r.content)
 
-# Leer hoja
-df = pd.read_excel(excel_temp, header=None)
+# Leer excel
+df = pd.read_excel("temp.xls", header=None)
 
-# Convertir toda la hoja a lista
-valores = df.fillna("").values.tolist()
+# Convertir toda la hoja en una lista simple
+datos = df.astype(str).fillna("").stack().tolist()
 
-demanda_nacional = None
+demanda = None
 convencional = None
-sector_electrico = None
+sector = None
 
-for i, fila in enumerate(valores):
+for i, valor in enumerate(datos):
 
-    if "Demanda Nacional" in map(str, fila):
-        demanda_nacional = float(valores[i+1][1])
+    if valor == "Demanda Nacional":
+        demanda = float(datos[i + 1])
 
-    if "Convencional" in map(str, fila):
-        convencional = float(valores[i+1][1])
+    elif valor == "Convencional":
+        convencional = float(datos[i + 1])
 
-    if "Sector Eléctrico" in map(str, fila):
-        sector_electrico = float(valores[i+1][1])
+    elif valor == "Sector Eléctrico":
+        sector = float(datos[i + 1])
 
-# Crear registro
-nuevo = pd.DataFrame([{
+registro = pd.DataFrame([{
     "Fecha": fecha_csv,
-    "Demanda Nacional": demanda_nacional,
+    "Demanda Nacional": demanda,
     "Convencional": convencional,
-    "Sector Eléctrico": sector_electrico
+    "Sector Eléctrico": sector
 }])
 
 csv_file = "historico_demanda.csv"
 
 if os.path.exists(csv_file):
     historico = pd.read_csv(csv_file)
-
-    historico = historico[
-        historico["Fecha"] != fecha_csv
-    ]
-
-    historico = pd.concat(
-        [historico, nuevo],
-        ignore_index=True
-    )
+    historico = historico[historico["Fecha"] != fecha_csv]
+    historico = pd.concat([historico, registro], ignore_index=True)
 else:
-    historico = nuevo
+    historico = registro
 
-historico = historico.sort_values("Fecha")
-
-historico.to_csv(
-    csv_file,
-    index=False,
-    encoding="utf-8-sig"
-)
+historico.to_csv(csv_file, index=False)
 
 print(historico.tail())
