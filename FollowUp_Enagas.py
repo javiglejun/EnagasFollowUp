@@ -1,15 +1,16 @@
-import pandas as pd
-import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-import os
+import pandas as pd
+import requests
 
-# Fecha de ayer
+# ==========================================
+# FECHA DE AYER
+# ==========================================
+
 hoy = datetime.now(ZoneInfo("Europe/Madrid")).date()
 fecha = hoy - timedelta(days=1)
 
 fecha_url = fecha.strftime("%d/%m/%Y")
-fecha_csv = fecha.strftime("%Y-%m-%d")
 
 url = (
     "https://www.enagas.es/content/enagas/es/gestion-tecnica-sistema/"
@@ -18,54 +19,65 @@ url = (
     f"dailysystemtracking.dailysystemtrackingdto.xls?date={fecha_url}"
 )
 
-# Descargar fichero
+print("Descargando:", url)
+
+# ==========================================
+# DESCARGA DEL EXCEL
+# ==========================================
+
 r = requests.get(url, timeout=60)
 r.raise_for_status()
 
 with open("temp.xls", "wb") as f:
     f.write(r.content)
 
-# Leer excel
+print("Excel descargado correctamente")
+
+# ==========================================
+# LECTURA DEL EXCEL
+# ==========================================
+
 df = pd.read_excel("temp.xls", header=None)
 
 print("===== INICIO EXCEL =====")
-print(df.head(40))
+print(df.head(50))
 print("===== FIN EXCEL =====")
 
-# Convertir toda la hoja en una lista simple
-datos = df.astype(str).fillna("").stack().tolist()
+# ==========================================
+# CONVERTIR EN LISTA SIMPLE
+# ==========================================
 
-demanda = None
-convencional = None
-sector = None
+datos = (
+    df.fillna("")
+      .astype(str)
+      .values
+      .flatten()
+      .tolist()
+)
+
+print("TOTAL ELEMENTOS:", len(datos))
+
+# ==========================================
+# BUSCAR TEXTOS CLAVE
+# ==========================================
 
 for i, valor in enumerate(datos):
 
-    if valor == "Demanda Nacional":
-        demanda = float(datos[i + 1])
+    texto = str(valor).strip()
 
-    elif valor == "Convencional":
-        convencional = float(datos[i + 1])
+    if "Demanda Nacional" in texto:
+        print("\n")
+        print("===== DEMANDA NACIONAL =====")
+        print(datos[i:i+20])
 
-    elif valor == "Sector Eléctrico":
-        sector = float(datos[i + 1])
+    if "Convencional" == texto:
+        print("\n")
+        print("===== CONVENCIONAL =====")
+        print(datos[i:i+20])
 
-registro = pd.DataFrame([{
-    "Fecha": fecha_csv,
-    "Demanda Nacional": demanda,
-    "Convencional": convencional,
-    "Sector Eléctrico": sector
-}])
+    if "Sector Eléctrico" in texto:
+        print("\n")
+        print("===== SECTOR ELECTRICO =====")
+        print(datos[i:i+20])
 
-csv_file = "historico_demanda.csv"
-
-if os.path.exists(csv_file):
-    historico = pd.read_csv(csv_file)
-    historico = historico[historico["Fecha"] != fecha_csv]
-    historico = pd.concat([historico, registro], ignore_index=True)
-else:
-    historico = registro
-
-historico.to_csv(csv_file, index=False)
-
-print(historico.tail())
+print("FIN DEL SCRIPT")
