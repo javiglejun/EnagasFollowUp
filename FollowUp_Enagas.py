@@ -28,6 +28,10 @@ with open("temp.xls", "wb") as f:
 # Leer excel
 df = pd.read_excel("temp.xls", header=None)
 
+print("===== INICIO EXCEL =====")
+print(df.head(40))
+print("===== FIN EXCEL =====")
+
 # Convertir toda la hoja en una lista simple
 datos = df.astype(str).fillna("").stack().tolist()
 
