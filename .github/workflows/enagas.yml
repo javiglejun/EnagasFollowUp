@@ -34,7 +34,7 @@ jobs:
 
       - name: Ejecutar descarga Enagas
         run: |
-          python NBP_Historico.py
+          python FollowUp_Enagas.py
 
       - name: Commit de los cambios
         run: |
