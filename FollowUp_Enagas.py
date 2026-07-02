@@ -1,97 +1,95 @@
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, timedelta
 import pandas as pd
 import requests
-import os
+import time
 
-# Fecha de ayer
-hoy = datetime.now(ZoneInfo("Europe/Madrid")).date()
-fecha = hoy - timedelta(days=1)
+fecha_inicio = date(2026, 1, 1)
+fecha_fin = date.today() - timedelta(days=1)
 
-fecha_url = fecha.strftime("%d/%m/%Y")
-fecha_csv = fecha.strftime("%Y-%m-%d")
+registros = []
 
-url = (
-    "https://www.enagas.es/content/enagas/es/gestion-tecnica-sistema/"
-    "energy-data/parametros-fisicos/capacidades-tecnicas-flujos-fisicos/"
-    "seguimiento-diario-sistema/jcr:content/responsiveGrid/"
-    f"dailysystemtracking.dailysystemtrackingdto.xls?date={fecha_url}"
-)
+fecha_actual = fecha_inicio
 
-print("Descargando:", url)
+while fecha_actual <= fecha_fin:
 
-# Descargar fichero
-r = requests.get(url, timeout=60)
-r.raise_for_status()
+    try:
 
-with open("temp.xls", "wb") as f:
-    f.write(r.content)
+        fecha_url = fecha_actual.strftime("%d/%m/%Y")
+        fecha_csv = fecha_actual.strftime("%Y-%m-%d")
 
-# Leer Excel
-df = pd.read_excel("temp.xls", header=None)
+        print(f"Procesando {fecha_csv}")
 
-# Convertir a lista plana
-datos = (
-    df.fillna("")
-      .astype(str)
-      .values
-      .flatten()
-      .tolist()
-)
+        url = (
+            "https://www.enagas.es/content/enagas/es/gestion-tecnica-sistema/"
+            "energy-data/parametros-fisicos/capacidades-tecnicas-flujos-fisicos/"
+            "seguimiento-diario-sistema/jcr:content/responsiveGrid/"
+            f"dailysystemtracking.dailysystemtrackingdto.xls?date={fecha_url}"
+        )
 
-demanda = None
-convencional = None
-sector = None
+        r = requests.get(url, timeout=60)
 
-for i, valor in enumerate(datos):
+        if r.status_code != 200:
+            print(f"No disponible: {fecha_csv}")
+            fecha_actual += timedelta(days=1)
+            continue
 
-    texto = str(valor).strip()
+        with open("temp.xls", "wb") as f:
+            f.write(r.content)
 
-    if texto == "Demanda Nacional":
-        demanda = float(datos[i + 2])
+        df = pd.read_excel("temp.xls", header=None)
 
-    elif texto == "Convencional":
-        convencional = float(datos[i + 2])
+        datos = (
+            df.fillna("")
+              .astype(str)
+              .values
+              .flatten()
+              .tolist()
+        )
 
-    elif texto == "Sector Eléctrico":
-        sector = float(datos[i + 2])
+        demanda = None
+        convencional = None
+        sector = None
 
-print("Demanda Nacional:", demanda)
-print("Convencional:", convencional)
-print("Sector Eléctrico:", sector)
+        for i, valor in enumerate(datos):
 
-nuevo_registro = pd.DataFrame([{
-    "Fecha": fecha_csv,
-    "Demanda Nacional": demanda,
-    "Convencional": convencional,
-    "Sector Eléctrico": sector
-}])
+            texto = str(valor).strip()
 
-csv_file = "historico_demanda.csv"
+            if texto == "Demanda Nacional":
+                demanda = float(datos[i + 2])
 
-if os.path.exists(csv_file):
+            elif texto == "Convencional":
+                convencional = float(datos[i + 2])
 
-    historico = pd.read_csv(csv_file)
+            elif texto == "Sector Eléctrico":
+                sector = float(datos[i + 2])
 
-    historico = historico[
-        historico["Fecha"] != fecha_csv
-    ]
+        if (
+            demanda is not None
+            and convencional is not None
+            and sector is not None
+        ):
 
-    historico = pd.concat(
-        [historico, nuevo_registro],
-        ignore_index=True
-    )
+            registros.append({
+                "Fecha": fecha_csv,
+                "Demanda Nacional": demanda,
+                "Convencional": convencional,
+                "Sector Eléctrico": sector
+            })
 
-else:
-    historico = nuevo_registro
+        time.sleep(1)
 
-historico = historico.sort_values("Fecha")
+    except Exception as e:
+        print(f"Error en {fecha_actual}: {e}")
+
+    fecha_actual += timedelta(days=1)
+
+historico = pd.DataFrame(registros)
 
 historico.to_csv(
-    csv_file,
+    "historico_demanda.csv",
     index=False,
     encoding="utf-8-sig"
 )
 
-print("CSV actualizado correctamente")
 print(historico.tail())
+print(f"Registros descargados: {len(historico)}")
