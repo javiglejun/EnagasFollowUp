@@ -1,0 +1,51 @@
+name: Enagas Diario
+
+on:
+  schedule:
+    # Todos los días a las 08:00 UTC
+    # (11:00 España en verano)
+    - cron: "0 9 * * *"
+
+  # Permite lanzarlo manualmente desde Actions
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  descargar:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ejecutar descarga Enagas
+        run: |
+          python NBP_Historico.py
+
+      - name: Commit de los cambios
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No hay cambios"
+          else
+            git commit -m "Actualizacion diaria Enagas"
+            git push
+          fi
