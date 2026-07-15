@@ -137,6 +137,16 @@ def descargar_y_extraer(fecha_objetivo):
         f.write(response.content)
 
     df = pd.read_excel("temp.xls", header=None)
+    print("\n===================================")
+    print("DATAFRAME COMPLETO")
+    print("===================================")
+
+    with pd.option_context(
+        'display.max_rows', None,
+        'display.max_columns', None,
+        'display.width', 1000
+    ):
+    print(df)
 
     datos = (
         df.fillna("")
