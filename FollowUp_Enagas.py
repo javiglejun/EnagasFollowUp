@@ -138,7 +138,7 @@ def descargar_y_extraer(fecha_objetivo):
 
     df = pd.read_excel("temp.xls", header=None)
   
-    print(df.to_string())
+    print(df)
 
     datos = (
         df.fillna("")
